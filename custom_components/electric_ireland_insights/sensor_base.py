@@ -15,7 +15,7 @@ from homeassistant_historical_sensor import (
     PollUpdateMixin,
 )
 
-from .api import ElectricIrelandScraper, BidgelyScraper
+from .api import ElectricIrelandScraper
 from .const import DOMAIN, LOOKUP_DAYS, PARALLEL_DAYS
 
 
@@ -65,7 +65,6 @@ class Sensor(PollUpdateMixin, HistoricalSensor, SensorEntity):
         loop = asyncio.get_running_loop()
 
         await loop.run_in_executor(None, self._api.refresh_credentials)
-        scraper: BidgelyScraper = self._api.scraper
 
         hist_states: List[HistoricalState] = []
 
@@ -84,7 +83,7 @@ class Sensor(PollUpdateMixin, HistoricalSensor, SensorEntity):
             while current_date <= yesterday:
                 LOGGER.debug(f"Submitting {current_date}")
                 # We launch a job for the target date, and we put it to the full list of results
-                results = loop.run_in_executor(executor, scraper.get_data,
+                results = loop.run_in_executor(executor, self._api.get_data,
                                                current_date,
                                                self._metric == "consumption")
                 executor_results.append(results)
