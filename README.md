@@ -1,6 +1,6 @@
 # Home Assistant Electric Ireland Integration
 
-[![Open Integration](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=barreeeiroo&repository=Home-Assistant-Electric-Ireland&category=integration)
+[![Open Integration](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=badwinton&repository=Home-Assistant-Electric-Ireland&category=integration)
 
 Home Assistant integration with **Electric Ireland insights**.
 
@@ -50,9 +50,14 @@ into the wrong hour. If you take the previous and after, the total should be the
 
 ### Sensors
 
-* **Electric Ireland Consumption**: reports consumed data in kWh, in 30 minute intervals.
-* **Electric Ireland Cost**: reports the total cost charged in 60 minute intervals (without discounts and without
-  standing charge, just the gross "usage" as per the contracted tariff).
+- **Electric Ireland Consumption**: reports consumed data in kWh. This integration now retrieves hourly consumption
+  data from the provider (via the `hourly-usage` endpoint).
+- **Electric Ireland Cost**: reports the total cost charged per day (without discounts and without standing charge),
+  using the `usage-daily` endpoint which returns daily usage/cost values.
+
+Additionally, the integration can retrieve a bill projection using the `bill-projection` endpoint; this is not
+exposed as a sensor by default but is available to the integration and can be added as a separate entity if
+desired.
 
 ### Data Retrieval Flow
 
@@ -61,23 +66,28 @@ into the wrong hour. If you take the previous and after, the total should be the
     2. Do a POST request to login into Electric Ireland.
     3. Scrape the dashboard to try to find the `div` with the target Account Number.
     4. Navigate to the Insights page for that Account Number.
-2. Now, once we have that Insights page, we don't need the ELectric Ireland session anymore:
-    1. The page contains a payload to call Bidgely API (data API provider for Electric Ireland).
-    2. Authenticate using that payload against Bidgely API (no need for session or cookies).
-    3. Send requests to the API to fetch the data for required intervals.
-    4. Profit! 🎉
+2. Now, once we have that Insights page, we don't need the Electric Ireland session anymore:
+  1. The page contains a payload to call the data API used by Electric Ireland (Bidgely or similar).
+  2. Authenticate using that payload against the data API (no need for session or cookies).
+  3. Send requests to the available endpoints to fetch the data. Current supported endpoints used by this
+     integration are:
+
+     - `MeterInsight/<partner>/<contract>/<premise>/usage-daily?start=<YYYY-MM-DD>&end=<YYYY-MM-DD>`
+     - `MeterInsight/<partner>/<contract>/<premise>/hourly-usage?date=<YYYY-MM-DD>`
+     - `MeterInsight/<partner>/<contract>/<premise>/bill-projection`
+
+  4. Profit! 🎉
 
 ### Schedule
 
 Every hour:
 
-* Performs once the flow mentioned above to get the API credentials.
-* Launches requests for the 11th to 1st days before "now": if today is 20th January, then it will retrieve data
-  for all days between the 9th and 19th.
-* For Cost, it will receive 24 datapoints within the date.
-* For Consumption, it will receive 48 datapoints within the date.
-* It will ingest the data taking the last minute of the interval: if querying for 00:00 to 00:30, it will ingest it
-  effective at 00:29.
+- Performs once the flow mentioned above to get the API credentials.
+- Launches requests for the configured lookup range of days (default is the previous 10 days). For each day the
+  integration will request:
+  - hourly consumption data via `hourly-usage` (when applicable),
+  - daily aggregated usage/cost via `usage-daily` (single-day range or larger windows).
+- It will ingest the data using the interval end timestamp reported by the API.
 
 ## Acknowledgements
 
